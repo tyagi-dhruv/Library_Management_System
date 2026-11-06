@@ -1,23 +1,24 @@
-# Library Management System Authentication
+# Library Management System API
 
-Spring Boot 3 / Java 17 backend for JWT authentication and USER/STUDENT authorization against the existing MySQL database. The project does not implement book, membership, payment, or fine operations.
+A small Spring Boot REST API using Java 22, Maven, MySQL, Spring Security, BCrypt, and JWT.
 
-## Requirements
+## Database
 
-- Java 17 or later
-- Maven 3.8+
-- MySQL with the existing `Library_managment_system` database and its 14 tables
-- IntelliJ IDEA or another Java IDE
+The application connects to the existing `Library_managment_system` database. Hibernate is configured with `ddl-auto=none`, so the application does not create or change tables.
 
-## Database Setup
+The CATEGORY entity maps to the inspected table columns:
 
-The provided `schema.sql` describes the existing database tables. Do not rerun it against a populated database: it is not a migration script. Review and run only [`sql/login_account.sql`](sql/login_account.sql) in MySQL Workbench. It creates the new login table and foreign key without changing the existing tables or records.
+- `category_id`
+- `category_name`
+- `parent_category_id` (a self-reference to `CATEGORY.category_id`)
+- `description`
+- `created_at`
 
-Registration inserts a row into the existing `USER` table, so its `userTypeId` must refer to an existing `USER_TYPE.user_type_id`. If provided, `genderId` and `addressId` must also refer to existing rows. The auth role (`USER` or `STUDENT`) is stored only in `login_account.role`; it is separate from `USER_TYPE`.
+User login accounts use the existing `login_account` table. The existing role constraint on that table allows `USER` and `STUDENT`; librarian credentials are supplied through environment variables and are BCrypt-checked by the application. No database table changes are needed.
 
-## Environment Configuration
+## Configuration
 
-Set these variables in the IntelliJ run configuration's Environment variables field, or in your shell before starting the application:
+Provide these environment variables in the shell or IntelliJ run configuration. Do not put real values in source control.
 
 | Variable | Required | Default |
 | --- | --- | --- |
@@ -26,43 +27,65 @@ Set these variables in the IntelliJ run configuration's Environment variables fi
 | `DB_PASSWORD` | Yes | None |
 | `JWT_SECRET_BASE64` | Yes | None |
 | `JWT_EXPIRATION_MS` | No | `3600000` |
+| `LIBRARIAN_USERNAME` | Yes for librarian login | None |
+| `LIBRARIAN_PASSWORD` | Yes for librarian login | None |
 
-Generate a signing key of at least 256 bits and encode it as Base64, for example with `openssl rand -base64 32`. Keep the resulting value private and do not commit it. The application uses `ddl-auto=none`; Hibernate will not create or update tables.
+Generate a private JWT key of at least 256 bits and encode it as Base64. For example, use `openssl rand -base64 32`. Keep the result private.
 
-Example PowerShell setup for the current terminal (replace the database username/password with your own):
+PowerShell example (replace each placeholder with your own value):
 
 ```powershell
 $env:DB_USERNAME = "root"
-$env:DB_PASSWORD = "your-local-mysql-password"
-$env:JWT_SECRET_BASE64 = "VGhpc0lzQU5vdEFjdHVhbFByb2R1Y3Rpb25TZWNyZXRLZXkxMjM0NQ=="
+$env:DB_PASSWORD = "<your-mysql-password>"
+$env:JWT_SECRET_BASE64 = "<your-private-base64-key>"
+$env:LIBRARIAN_USERNAME = "librarian"
+$env:LIBRARIAN_PASSWORD = "<your-librarian-password>"
 mvn spring-boot:run
 ```
 
-In IntelliJ, open the project folder containing `pom.xml`, set the same environment variables in the run configuration, and run `LibraryManagementApplication`.
+The librarian password is hashed with BCrypt in memory. Set these variables each time you start the application, or save them in the IDE run configuration. The application does not load `.env` automatically.
 
-## API Endpoints
+## Run
 
-Base URL: `http://localhost:8081` (change using `SERVER_PORT` if needed)
+Install Java 22 and Maven 3.8 or later, then start MySQL and run:
+
+```powershell
+mvn spring-boot:run
+```
+
+Base URL: `http://localhost:8081`.
+
+## Endpoints
 
 | Method | Path | Access |
 | --- | --- | --- |
 | POST | `/api/auth/register/user` | Public |
-| POST | `/api/auth/register/student` | Public |
 | POST | `/api/auth/login` | Public |
-| GET | `/api/user/profile` | USER |
-| GET | `/api/user/dashboard` | USER |
-| POST | `/api/user/manage-account` | USER |
-| GET | `/api/student/profile` | STUDENT |
-| GET | `/api/student/dashboard` | STUDENT |
-| GET | `/api/student/library` | STUDENT |
+| GET | `/librarian/hello` | LIBRARIAN |
+| GET | `/user/hello` | USER |
+| POST | `/categories` | LIBRARIAN |
+| GET | `/categories` | LIBRARIAN or USER |
+| PUT | `/categories/{id}` | LIBRARIAN |
 
-The protected endpoints are placeholders and perform no library operations. Registration responds with the new `userId`, username, and a message; it never includes the submitted password or its hash.
+Registration adds a USER and login account using the existing tables. The `userTypeId` must match an existing row in `USER_TYPE`; optional `genderId` and `addressId` values must also exist.
 
-## Postman Testing
+Example category request for both POST and PUT:
 
-For all requests, select `Body` > `raw` > `JSON` where a body is shown. Register one account through each registration endpoint, using distinct emails, usernames, and membership numbers. Change `userTypeId` to an ID that exists in your database.
+```json
+{
+  "categoryName": "Fiction",
+  "parentCategoryId": null,
+  "description": "Fiction books"
+}
+```
 
-USER registration (`POST /api/auth/register/user`):
+To make a child category, set `parentCategoryId` to an existing category ID. A successful POST returns 201; GET and successful PUT return 200. A missing category on PUT returns 404.
+
+## Postman
+
+### Register a USER
+
+Send `POST http://localhost:8081/api/auth/register/user` with Body → raw → JSON. Use IDs that exist in your database.
 
 ```json
 {
@@ -72,7 +95,7 @@ USER registration (`POST /api/auth/register/user`):
   "lastName": "Reader",
   "email": "alex.reader@example.com",
   "username": "alex.reader",
-  "password": "ChangeThis123!",
+  "password": "ChooseYourOwnPassword123!",
   "phoneNumber": "9000000001",
   "dateOfBirth": "2000-01-15",
   "genderId": null,
@@ -81,36 +104,34 @@ USER registration (`POST /api/auth/register/user`):
 }
 ```
 
-Use the same JSON shape for `POST /api/auth/register/student` with unique values.
+Use a unique email, username, and membership number for each registration.
 
-Log in with `POST /api/auth/login`; set `usernameOrEmail` to either the registered username or email:
+### Log in
+
+Send `POST http://localhost:8081/api/auth/login`:
 
 ```json
 {
   "usernameOrEmail": "alex.reader",
-  "password": "ChangeThis123!"
+  "password": "ChooseYourOwnPassword123!"
 }
 ```
 
-Copy `accessToken` from the response. For protected requests, select the Postman `Authorization` tab, choose `Bearer Token`, and paste the token. Repeat login for the student account to get its token.
+For a librarian, use the configured `LIBRARIAN_USERNAME` and `LIBRARIAN_PASSWORD`. The login response contains an `accessToken` and its role.
 
-Expected checks:
+### Call a protected API
+
+In Postman, open Authorization → Bearer Token and paste `accessToken` from login. Try the hello and category requests. Create and update categories with the librarian token; list categories with either token.
 
 | Request | Expected status |
 | --- | --- |
-| USER token to each `/api/user/**` endpoint | 200 |
-| STUDENT token to each `/api/student/**` endpoint | 200 |
-| STUDENT token to any `/api/user/**` endpoint | 403 |
-| USER token to any `/api/student/**` endpoint | 403 |
-| No token to any protected endpoint | 401 |
-| Invalid, modified, or expired token to a protected endpoint | 401 |
-
-The default token lifetime is one hour. For an expiration test, set `JWT_EXPIRATION_MS` to a short positive value, restart the application, log in, wait for that duration, and call a protected route with that token. An expired token must return 401.
-
-## Run Tests
-
-```powershell
-mvn test
-```
-
-The MockMvc tests verify allowed USER and STUDENT access, cross-role 403 responses, and missing, malformed, and expired token 401 responses. They do not require a running MySQL instance. To use the API manually, MySQL must be running and the SQL setup and environment variables must be configured first.
+| Protected API without a token | 401 Unauthorized |
+| Protected API with an invalid/expired token | 401 Unauthorized |
+| USER token → `GET /user/hello` | 200 OK |
+| LIBRARIAN token → `GET /librarian/hello` | 200 OK |
+| USER token → `GET /librarian/hello` | 403 Forbidden |
+| LIBRARIAN token → `GET /user/hello` | 403 Forbidden |
+| USER or LIBRARIAN token → `GET /categories` | 200 OK |
+| USER token → category POST or PUT | 403 Forbidden |
+| LIBRARIAN token → category POST | 201 Created |
+| LIBRARIAN token → category PUT | 200 OK |

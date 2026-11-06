@@ -1,6 +1,7 @@
 package com.library.librarymanagement.config;
 
 import com.library.librarymanagement.security.JwtFilter;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -25,8 +26,11 @@ public class SecurityConfig {
                         response.sendError(org.springframework.http.HttpStatus.FORBIDDEN.value())))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/user/**").hasRole("USER")
-                        .requestMatchers("/api/student/**").hasRole("STUDENT")
+                        .requestMatchers(HttpMethod.GET, "/librarian/hello").hasRole("LIBRARIAN")
+                        .requestMatchers(HttpMethod.GET, "/user/hello").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/categories").hasAnyRole("LIBRARIAN", "USER")
+                        .requestMatchers(HttpMethod.POST, "/categories").hasRole("LIBRARIAN")
+                        .requestMatchers(HttpMethod.PUT, "/categories/*").hasRole("LIBRARIAN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

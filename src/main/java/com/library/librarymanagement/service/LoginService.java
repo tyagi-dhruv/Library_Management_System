@@ -11,6 +11,7 @@ import com.library.librarymanagement.repository.LoginAccountRepository;
 import com.library.librarymanagement.repository.UserRepository;
 import com.library.librarymanagement.security.JwtUtil;
 import java.time.LocalDate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,13 +23,20 @@ public class LoginService {
     private final LoginAccountRepository loginAccountRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final String librarianUsername;
+    private final String librarianPasswordHash;
 
     public LoginService(UserRepository userRepository, LoginAccountRepository loginAccountRepository,
-                        PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+                        PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
+                        @Value("${librarian.username:}") String librarianUsername,
+                        @Value("${librarian.password:}") String librarianPassword) {
         this.userRepository = userRepository;
         this.loginAccountRepository = loginAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.librarianUsername = librarianUsername;
+        this.librarianPasswordHash = librarianPassword.isBlank()
+                ? "" : passwordEncoder.encode(librarianPassword);
     }
 
     @Transactional
@@ -55,6 +63,13 @@ public class LoginService {
 
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
+        if (!librarianUsername.isBlank()
+                && librarianUsername.equalsIgnoreCase(request.usernameOrEmail())
+                && passwordEncoder.matches(request.password(), librarianPasswordHash)) {
+            return new LoginResponse(jwtUtil.generateToken(librarianUsername, Role.LIBRARIAN),
+                    "Bearer", jwtUtil.getExpirationSeconds(), Role.LIBRARIAN);
+        }
+
         LoginAccount account = loginAccountRepository.findByUsernameOrEmail(request.usernameOrEmail())
                 .filter(found -> "ACTIVE".equalsIgnoreCase(found.getStatus()))
                 .filter(found -> passwordEncoder.matches(request.password(), found.getPasswordHash()))

@@ -27,11 +27,6 @@ public class LoginController {
         return loginService.register(request, Role.USER);
     }
 
-    @PostMapping("/register/student")
-    public RegistrationResponse registerStudent(@Valid @RequestBody RegisterRequest request) {
-        return loginService.register(request, Role.STUDENT);
-    }
-
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return loginService.login(request);

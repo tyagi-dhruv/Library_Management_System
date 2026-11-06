@@ -25,5 +25,17 @@ bin/
 ### VS Code ###
 .vscode/
 
+# Local credentials
+.env
+
 ### Mac OS ###
 .DS_Store
+
+# IntelliJ IDEA
+.idea/
+
+# Maven generated files
+target/
+
+# Environment variables
+.env
