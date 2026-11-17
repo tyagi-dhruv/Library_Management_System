@@ -33,6 +33,12 @@ public class CategoryService {
         return categoryRepository.save(category);
     }
 
+    public void delete(Integer id) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+        categoryRepository.delete(category);
+    }
+
     private Category findParent(Integer parentCategoryId) {
         if (parentCategoryId == null) {
             return null;

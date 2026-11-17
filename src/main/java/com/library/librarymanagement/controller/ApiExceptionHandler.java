@@ -20,7 +20,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleConstraintViolation(DataIntegrityViolationException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("error", "Registration conflicts with an existing database value or reference"));
+                .body(Map.of("error", "Operation conflicts with an existing database value or reference"));
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)

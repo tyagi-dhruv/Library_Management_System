@@ -2,9 +2,12 @@ package com.library.librarymanagement;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.library.librarymanagement.config.SecurityConfig;
+import com.library.librarymanagement.service.BookService;
 import com.library.librarymanagement.service.CategoryService;
 import com.library.librarymanagement.entity.Role;
 import com.library.librarymanagement.security.JwtFilter;
@@ -46,6 +49,9 @@ class SecurityAuthorizationTest {
     @MockitoBean
     private CategoryService categoryService;
 
+    @MockitoBean
+    private BookService bookService;
+
     private static String createTestSecret() {
         byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
@@ -61,6 +67,12 @@ class SecurityAuthorizationTest {
                         .string("Hello User"));
         mockMvc.perform(get("/categories").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/books").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/books/1").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/books/category/1").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -72,6 +84,12 @@ class SecurityAuthorizationTest {
                         .string("Hello Librarian"));
         mockMvc.perform(get("/categories").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/books").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/books/1").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/books/category/1").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
         mockMvc.perform(post("/categories").header("Authorization", "Bearer " + token)
                         .contentType("application/json").content("{\"categoryName\":\"Fiction\"}"))
                 .andExpect(status().isCreated());
@@ -79,6 +97,18 @@ class SecurityAuthorizationTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType("application/json").content("{\"categoryName\":\"Fiction\"}"))
                 .andExpect(status().isOk());
+        mockMvc.perform(delete("/categories/1").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/books").header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("{\"title\":\"Fiction\",\"bookTypeId\":1,\"categoryId\":1}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(put("/books/1").header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("{\"title\":\"Fiction\",\"bookTypeId\":1,\"categoryId\":1}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/books/1").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
     }
 
     @Test
@@ -89,6 +119,18 @@ class SecurityAuthorizationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(post("/categories").header("Authorization", "Bearer " + userToken)
                         .contentType("application/json").content("{\"categoryName\":\"Fiction\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/categories/1").header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/books").header("Authorization", "Bearer " + userToken)
+                        .contentType("application/json")
+                        .content("{\"title\":\"Fiction\",\"bookTypeId\":1,\"categoryId\":1}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/books/1").header("Authorization", "Bearer " + userToken)
+                        .contentType("application/json")
+                        .content("{\"title\":\"Fiction\",\"bookTypeId\":1,\"categoryId\":1}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/books/1").header("Authorization", "Bearer " + userToken))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/user/hello").header("Authorization", "Bearer " + librarianToken))
                 .andExpect(status().isForbidden());

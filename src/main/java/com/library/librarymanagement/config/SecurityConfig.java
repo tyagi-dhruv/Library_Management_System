@@ -31,6 +31,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/categories").hasAnyRole("LIBRARIAN", "USER")
                         .requestMatchers(HttpMethod.POST, "/categories").hasRole("LIBRARIAN")
                         .requestMatchers(HttpMethod.PUT, "/categories/*").hasRole("LIBRARIAN")
+                        .requestMatchers(HttpMethod.DELETE, "/categories/*").hasRole("LIBRARIAN")
+                        .requestMatchers(HttpMethod.GET, "/books", "/books/*", "/books/category/*")
+                        .hasAnyRole("LIBRARIAN", "USER")
+                        .requestMatchers(HttpMethod.POST, "/books").hasRole("LIBRARIAN")
+                        .requestMatchers(HttpMethod.PUT, "/books/*").hasRole("LIBRARIAN")
+                        .requestMatchers(HttpMethod.DELETE, "/books/*").hasRole("LIBRARIAN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
